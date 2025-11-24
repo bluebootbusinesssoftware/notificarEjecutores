@@ -3,8 +3,12 @@ const passport = require('passport');
 const xsenv = require('@sap/xsenv');
 const JWTStrategy = require('@sap/xssec').JWTStrategy;
 const axios = require('axios');
+const bodyParser = require('body-parser');
 
 const app = express();
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
+
 
 //configure passport - get first audience for xsuaa
 const xsuaaService = xsenv.getServices({ myXsuaa: { tag: 'xsuaa' }});
@@ -24,11 +28,11 @@ app.use(passport.authenticate(['jwt1', 'jwt2'], { session: false }));
 
 
 app.get('/notificar', function(req, res){
-    axios.get('https://cap-capcf-grp-js.cfapps.us10.hana.ondemand.com/vat.xsjs?method=get-ejecutores')
+    axios.get('https://cmp-produccion-cmp-produccion-grp-js.cfapps.us10.hana.ondemand.com/vat.xsjs?method=get-ejecutores')
         .then(response => {
             // Handle the response data
             if (response.data.length){
-                const url = 'https://sendMail.cfapps.us10.hana.ondemand.com/send';
+                const url = 'https://sendmailproxyprdrelay.cfapps.us10.hana.ondemand.com/send';
                 
                 const config = {
                     headers: {
@@ -72,6 +76,102 @@ GRP Digital.`
             // Handle any error that occurred during the request
             console.error(error);
     });
+
+    console.log('==> [APP JOB LOG] Job is running . . .');
+    res.send('Finished job');
+});
+
+app.post('/notificarDuenoArea', function(req, res){
+    console.log("--------------");
+    console.log("--------------");
+    console.log("--------------");
+    console.log("Este es el req");
+    console.log("--------------");
+    console.log("--------------");
+    console.log("--------------");
+    console.log(req.body);
+    console.log("--------------");
+    console.log("--------------");
+    console.log("--------------");
+    const urlHana = 'https://cmp-produccion-cmp-produccion-grp-js.cfapps.us10.hana.ondemand.com/vat.xsjs?method=get-vat-sin-evaluacion&turno='+req.body.turno+'&hora='+req.body.hora;
+    axios.get(urlHana)
+    .then(response => {
+        // Handle the response data
+            console.log("--------------");
+            console.log("--------------");
+            console.log("--------------");
+            console.log("Esta es la response");
+            console.log("--------------");
+            console.log("--------------");
+            console.log(urlHana);
+            console.log("--------------");
+            console.log("--------------");
+            console.log("--------------");
+            console.log(response.data);
+            console.log("--------------");
+            console.log("--------------");
+            
+            if (response.data.length){
+                var fecha = new Date();
+
+                // Ajustar la zona horaria de Chile -4 / -3
+                fecha.setHours(fecha.getHours() - 4);
+
+                const subject = 
+                (fecha.getDate() < 10 ? "0" + fecha.getDate() : fecha.getDate()) + "-" + 
+                (fecha.getMonth() < 10 ? "0" + (fecha.getMonth() + 1) : (fecha.getMonth() + 1) ) + "-" + 
+                fecha.getFullYear() + " " + 
+                (fecha.getHours() < 10 ? "0" + fecha.getHours() : fecha.getHours())  + ":00 hs";
+
+                const url = 'https://sendmailproxyprdrelay.cfapps.us10.hana.ondemand.com/send';
+                
+                const config = {
+                    headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Basic Ymx1ZWJvb3Q6czMzM25kYmx1bWFs'
+                    }
+                };
+
+                response.data.forEach((duenoArea, i) => {
+
+                    const delay = i * 2500; 
+
+                    var vatInfo = [];
+
+                    duenoArea.vat.forEach((vat)=>{
+                        vatInfo.push("– VAT N° "+vat.id + " - " + vat.ejecutorNombre +" ("+ vat.ejecutorEmail+")\n");
+                    });
+                    const vatText = vatInfo.join();
+
+                    setTimeout(() => {                                                
+                        const data = {
+                            "sendTo": duenoArea.duenoAreaEmail,
+                            "subject": subject + " - Recordatorio VAT sin evaluaciones de entorno",
+                            "mailBody": `Estimado/a ` + duenoArea.duenoAreaNombre + `,
+                            
+Se le recuerda que los siguientes VAT no cuentan con evaluación de entorno al momento del envío de este mail:\n\n` + vatText + `\n
+                            
+Muchas gracias,
+GRP Digital.`}    
+                        axios.post(url, data, config )
+                        .then(response => {
+                            // Handle the response data
+                            console.log("Mail enviado con éxito.");                     
+                        }).catch(error => {
+                            console.error(error);
+                        });  
+                    }, delay);
+                })
+            } else {
+                console.log("No se obtuvieron VAT sin evaluaciones.");
+            }
+            
+        })
+        .catch(error => {
+            // Handle any error that occurred during the request
+            console.error(error);
+    });
+    
 
     console.log('==> [APP JOB LOG] Job is running . . .');
     res.send('Finished job');

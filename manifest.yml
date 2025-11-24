@@ -1,10 +1,10 @@
 ---
 applications:
-- name: notificarEjecutores
+- name: notificarEjecutoresPrd
   path: app
   memory: 4G
   buildpacks:
     - nodejs_buildpack
   services:
-    - xsuaajobscheduler
-    - jobschedulerinstance
+    - xsuaajobschedulerprd
+    - jobschedulerinstanceprd
