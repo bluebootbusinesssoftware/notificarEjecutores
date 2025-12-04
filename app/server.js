@@ -177,6 +177,84 @@ GRP Digital.`}
     res.send('Finished job');
 });
 
+app.post('/notificarSolitarios', function(req, res){
+
+    const urlRit = 'https://cmp-produccion-cmp-produccion-grp-js.cfapps.us10.hana.ondemand.com/rit.xsjs?method=get-rit-solitarios&turno='+req.body.turno;
+
+    axios.get(urlRit)
+        .then(response => {
+            // Handle the response data
+            if (response.data.length){
+                const url = 'https://sendmailproxyprdrelay.cfapps.us10.hana.ondemand.com/send';
+                
+                
+                const config = {
+                    headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Basic Ymx1ZWJvb3Q6czMzM25kYmx1bWFs'
+                    }
+                };
+
+                response.data.forEach((row, i) => {
+
+                    const TZ = "America/Santiago";
+
+                    const fechaCL = new Date(row.fechaInicio)
+                    .toLocaleDateString("es-CL", { timeZone: TZ });              // ej: 10-10-2025
+
+                    const horaCL = new Date(row.horaInicio)
+                    .toLocaleTimeString("es-CL", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hour12: false }); // ej: 14:37
+
+                    const delay = i * 2500; 
+                    var mensaje = `Estimado/a ${row.liderNombre},<br><br>
+                    Se ha detectado que ${row.personaNombre} está realizando un trabajo en solitario en el RIT ${row.ritId}.<br><br>
+                    Fecha: ${fechaCL}<br>
+                    Faena: ${row.faenaName}<br>
+                    Valle: ${row.valleName}<br>
+                    Hora inicio: ${horaCL}<br><br>
+                    Email de la persona: ${row.personaEmail}<br><br>
+                    Por favor ingrese al siguiente enlace para realizar la evaluación y dejar registro:
+                    <a href='https://grp.cmp.cl#rit-Display?ritId=${row.ritId}&persona=${row.personaEmail}' target='_blank'> aquí</a><br><br>
+                    En caso de no poder acceder al link, intente <a href='https://flpnwc-ehvtci0fma.dispatcher.br1.hana.ondemand.com/sites/prd#rit-Display?ritId=${row.ritId}&persona=${row.personaEmail}' target='_blank'>acá</a><br><br>
+                    Saludos,<br>
+                    GRP Digital.`;
+
+
+                    setTimeout(() => {                                                
+                        
+                        const data = {
+                            "sendTo": row.liderEmail,
+                            "subject": `RIT #${row.ritId} - Persona trabajando en solitario`,
+							"mailBody": "a", 
+                            "html": mensaje
+                            // "html": (mensaje.replace("aquí", `<a href='https://grpqa.cmp.cl#rit-Display?ritId=${row.ritId}&persona=${row.personaEmail}' target='_blank'>aquí</a>`)).replace("acá", `<a href='https://flpnwc-ndaf37b4a.dispatcher.br1.hana.ondemand.com/sites?siteId=a95e35c0-735c-4da3-948a-86abc801600e#rit-Display?ritId=${row.ritId}&persona=${row.personaEmail}' target='_blank'>acá</a>`)
+                        }
+                        // https://grpqa.cmp.cl#rit-Display?ritId=${row.ritId}&persona=${row.personaEmail} 
+                        
+                        axios.post(url, data, config )
+                        .then(response => {
+                            // Handle the response data
+                            console.log("Mail enviado con éxito.");                     
+                        }).catch(error => {
+                            console.error(error);
+                        });  
+                    }, delay);
+                })
+            } else {
+                console.log("No se obtuvieron rit solitarios.");
+            }
+        })
+        .catch(error => {
+            // Handle any error that occurred during the request
+            console.error(error);
+    });
+
+    console.log('==> [APP JOB LOG] Job is running . . .');
+    res.send('Finished job');
+});
+
+
+
 const port = process.env.PORT || 3000;
 app.listen(port, function(){
     console.log('listening');
