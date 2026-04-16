@@ -450,7 +450,7 @@ app.get('/healthcheck-hana', async function(req, res) {
     };
     await axios.post(url, {
         sendTo: 'fgispert@blueboot.com',
-        subject: '[ALERTA] HANA no responde - BTP PRD',
+        subject: '[ALERTA] HANA no responde - BTP QA',
         mailBody: `HANA no respondió luego de 5 intentos (~1 minuto).\n\nError: ${lastError}`
     }, config).catch(e => console.error('Error enviando mail:', e.message));
 
