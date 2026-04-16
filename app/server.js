@@ -253,7 +253,47 @@ app.post('/notificarSolitarios', function(req, res){
     res.send('Finished job');
 });
 
+app.get('/healthcheck-hana', async function(req, res) {
+    const MAX_RETRIES = 5;
+    const RETRY_DELAY_MS = 12000;
 
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    let lastError = null;
+
+    for (let i = 1; i <= MAX_RETRIES; i++) {
+        try {
+        // Cualquier endpoint
+        await axios.get('https://cmp-produccion-cmp-produccion-grp-js.cfapps.us10.hana.ondemand.com/vat.xsjs?method=get-ejecutores', 
+            { timeout: 10000 }
+        );
+        console.log(`[HANA CHECK] Intento ${i}: OK`);
+        return res.send('OK');
+        } catch(err) {
+        lastError = err.message;
+        console.warn(`[HANA CHECK] Intento ${i} fallido: ${err.message}`);
+        if (i < MAX_RETRIES) await sleep(RETRY_DELAY_MS);
+        }
+    }
+
+    // Todos fallan
+    const url = 'https://sendmailproxyprdrelay.cfapps.us10.hana.ondemand.com/send';
+    const config = {
+        headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Basic Ymx1ZWJvb3Q6czMzM25kYmx1bWFs'
+        }
+    };
+    await axios.post(url, {
+        sendTo: 'lcairo@blueboot.com',
+        subject: '[ALERTA] HANA no responde - BTP PRD',
+        mailBody: `HANA no respondió luego de 5 intentos (~1 minuto).\n\nError: ${lastError}\n\nTimestamp: ${new Date().toISOString()}`
+    }, config).catch(e => console.error('Error enviando mail:', e.message));
+
+    res.send('HANA no responde - alerta enviada');
+});
 
 const port = process.env.PORT || 3000;
 app.listen(port, function(){
