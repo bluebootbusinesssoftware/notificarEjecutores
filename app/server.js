@@ -28,11 +28,11 @@ app.use(passport.authenticate(['jwt1', 'jwt2'], { session: false }));
 
 
 app.get('/notificar', function(req, res){
-    axios.get('https://cmp-produccion-cmp-produccion-grp-js.cfapps.us10.hana.ondemand.com/vat.xsjs?method=get-ejecutores')
+    axios.get('https://cap-capcf-grp-js.cfapps.us10.hana.ondemand.com/vat.xsjs?method=get-ejecutores')
         .then(response => {
             // Handle the response data
             if (response.data.length){
-                const url = 'https://sendmailproxyprdrelay.cfapps.us10.hana.ondemand.com/send';
+                const url = 'https://sendMail.cfapps.us10.hana.ondemand.com/send';
                 
                 const config = {
                     headers: {
@@ -93,7 +93,7 @@ app.post('/notificarDuenoArea', function(req, res){
     console.log("--------------");
     console.log("--------------");
     console.log("--------------");
-    const urlHana = 'https://cmp-produccion-cmp-produccion-grp-js.cfapps.us10.hana.ondemand.com/vat.xsjs?method=get-vat-sin-evaluacion&turno='+req.body.turno+'&hora='+req.body.hora;
+    const urlHana = 'https://cap-capcf-grp-js.cfapps.us10.hana.ondemand.com/vat.xsjs?method=get-vat-sin-evaluacion&turno='+req.body.turno+'&hora='+req.body.hora;
     axios.get(urlHana)
     .then(response => {
         // Handle the response data
@@ -123,7 +123,7 @@ app.post('/notificarDuenoArea', function(req, res){
                 fecha.getFullYear() + " " + 
                 (fecha.getHours() < 10 ? "0" + fecha.getHours() : fecha.getHours())  + ":00 hs";
 
-                const url = 'https://sendmailproxyprdrelay.cfapps.us10.hana.ondemand.com/send';
+                const url = 'https://sendMail.cfapps.us10.hana.ondemand.com/send';
                 
                 const config = {
                     headers: {
@@ -179,13 +179,13 @@ GRP Digital.`}
 
 app.post('/notificarSolitarios', function(req, res){
 
-    const urlRit = 'https://cmp-produccion-cmp-produccion-grp-js.cfapps.us10.hana.ondemand.com/rit.xsjs?method=get-rit-solitarios&turno='+req.body.turno;
+    const urlRit = 'https://cap-capcf-grp-js.cfapps.us10.hana.ondemand.com/rit.xsjs?method=get-rit-solitarios&turno='+req.body.turno;
 
     axios.get(urlRit)
         .then(response => {
             // Handle the response data
             if (response.data.length){
-                const url = 'https://sendmailproxyprdrelay.cfapps.us10.hana.ondemand.com/send';
+                const url = 'https://sendMail.cfapps.us10.hana.ondemand.com/send';
                 
                 
                 const config = {
@@ -214,8 +214,8 @@ app.post('/notificarSolitarios', function(req, res){
                     Hora inicio: ${horaCL}<br><br>
                     Email de la persona: ${row.personaEmail}<br><br>
                     Por favor ingrese al siguiente enlace para realizar la evaluación y dejar registro:
-                    <a href='https://grp.cmp.cl#rit-Display?ritId=${row.ritId}&persona=${row.personaEmail}' target='_blank'> aquí</a><br><br>
-                    En caso de no poder acceder al link, intente <a href='https://flpnwc-ehvtci0fma.dispatcher.br1.hana.ondemand.com/sites/prd#rit-Display?ritId=${row.ritId}&persona=${row.personaEmail}' target='_blank'>acá</a><br><br>
+                    <a href='https://grpqa.cmp.cl#rit-Display?ritId=${row.ritId}&persona=${row.personaEmail}' target='_blank'> aquí</a><br><br>
+                    En caso de no poder acceder al link, intente <a href='https://flpnwc-ndaf37b4a.dispatcher.br1.hana.ondemand.com/sites?siteId=a95e35c0-735c-4da3-948a-86abc801600e#rit-Display?ritId=${row.ritId}&persona=${row.personaEmail}' target='_blank'>acá</a><br><br>
                     Saludos,<br>
                     GRP Digital.`;
 
@@ -265,7 +265,7 @@ app.get('/healthcheck-hana', async function(req, res) {
 
     for (let i = 1; i <= MAX_RETRIES; i++) {
         try {
-            await axios.get('https://cmp-produccion-cmp-produccion-grp-js.cfapps.us10.hana.ondemand.com/vat.xsjs?method=get-ejecutores', 
+            await axios.get('https://cap-capcf-grp-js.cfapps.us10.hana.ondemand.com/vat.xsjs?method=get-ejecutores', 
                 { timeout: 10000 }
             );
             console.log(`[HANA CHECK] Intento ${i}: OK`);
@@ -277,7 +277,7 @@ app.get('/healthcheck-hana', async function(req, res) {
         }
     }
 
-    const url = 'https://sendmailproxyprdrelay.cfapps.us10.hana.ondemand.com/send';
+    const url = 'https://sendMail.cfapps.us10.hana.ondemand.com/send';
                 
     const config = {
         headers: {
@@ -287,7 +287,7 @@ app.get('/healthcheck-hana', async function(req, res) {
     };
     await axios.post(url, {
         sendTo: 'fbastias@cmp.cl',
-        subject: '[ALERTA] HANA no responde - BTP PRD',
+        subject: '[ALERTA] HANA no responde - BTP QA',
         mailBody: `HANA no respondió luego de 5 intentos (~1 minuto).\n\nError: ${lastError}`
     }, config).catch(e => console.error('Error enviando mail:', e.message));
 
