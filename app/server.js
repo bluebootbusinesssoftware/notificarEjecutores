@@ -265,9 +265,14 @@ app.get('/notificarPlazosInvestigaciones', function(req, res){
     // si queda vacio, el mail se envia sin link
     const intentInvestigaciones = 'investigacionincidentes-Display';
 
+    // solo se avisa cuando quedan estos dias habiles o menos: 2 dias antes, 1 dia antes y el dia del cierre (0)
+    const diasAviso = 2;
+
     axios.get(urlInvestigaciones)
         .then(response => {
-            const investigaciones = response.data?.entity || [];
+            // diasRestantes puede venir como string (DECIMAL de HANA)
+            const investigaciones = (response.data?.entity || [])
+                .filter(investigacion => Number(investigacion.diasRestantes) <= diasAviso);
 
             // un mail por cada miembro del equipo de cada investigacion
             var mails = [];
@@ -332,7 +337,7 @@ app.get('/notificarPlazosInvestigaciones', function(req, res){
                     }, delay);
                 })
             } else {
-                console.log("No se obtuvieron investigaciones en proceso.");
+                console.log(`No hay investigaciones en proceso a ${diasAviso} días hábiles o menos de su cierre.`);
             }
         })
         .catch(error => {
