@@ -253,6 +253,101 @@ app.post('/notificarSolitarios', function(req, res){
     res.send('Finished job');
 });
 
+// Aviso diario al equipo de cada investigacion con los dias habiles que quedan para cerrarla
+app.get('/notificarPlazosInvestigaciones', function(req, res){
+
+    const urlInvestigaciones = 'https://cap-capcf-grp-js.cfapps.us10.hana.ondemand.com/investigaciones.xsjs?method=get-plazos-investigaciones';
+
+    // BLOQUE TEMPORAL PARA PRUEBAS: si tiene correos, solo se envia a esos. Vaciar para enviar a todo el equipo
+    const correosPrueba = ['lcairo@blueboot.com', 'tsantana@cmp.cl', 'ecortesi@cmp.cl'];
+
+    // intent de la app de investigaciones en el launchpad (lo que va despues del # en la url)
+    // si queda vacio, el mail se envia sin link
+    const intentInvestigaciones = 'investigacionincidentes-Display';
+
+    // solo se avisa cuando quedan estos dias habiles o menos: 2 dias antes, 1 dia antes y el dia del cierre (0)
+    const diasAviso = 2;
+
+    axios.get(urlInvestigaciones)
+        .then(response => {
+            // diasRestantes puede venir como string (DECIMAL de HANA)
+            const investigaciones = (response.data?.entity || [])
+                .filter(investigacion => Number(investigacion.diasRestantes) <= diasAviso);
+
+            // un mail por cada miembro del equipo de cada investigacion
+            var mails = [];
+            investigaciones.forEach((investigacion) => {
+                const correos = [...new Set((investigacion.equipo || [])
+                    .map(miembro => (miembro.email || "").trim().toLowerCase())
+                    .filter(Boolean))]
+                    .filter(correo => !correosPrueba.length || correosPrueba.includes(correo));
+
+                correos.forEach((correo) => {
+                    mails.push({ investigacion, correo });
+                });
+            });
+
+            if (mails.length){
+                const url = 'https://sendMail.cfapps.us10.hana.ondemand.com/send';
+
+                const config = {
+                    headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Basic Ymx1ZWJvb3Q6czMzM25kYmx1bWFs'
+                    }
+                };
+
+                mails.forEach(({ investigacion, correo }, i) => {
+
+                    const delay = i * 2500;
+
+                    // diasRestantes puede venir como string (DECIMAL de HANA)
+                    const dias = Number(investigacion.diasRestantes);
+                    const textoDias = dias === 0
+                        ? "hoy vence el plazo"
+                        : (dias === 1 ? "queda 1 día hábil" : `quedan ${dias} días hábiles`);
+
+                    var link = intentInvestigaciones
+                        ? `Puede revisarla ingresando al siguiente enlace:
+                    <a href='https://grpqa.cmp.cl#${intentInvestigaciones}?id=${investigacion.id}' target='_blank'>aquí</a><br><br>
+                    En caso de no poder acceder al link, intente <a href='https://flpnwc-ndaf37b4a.dispatcher.br1.hana.ondemand.com/sites?siteId=a95e35c0-735c-4da3-948a-86abc801600e#${intentInvestigaciones}?id=${investigacion.id}' target='_blank'>acá</a><br><br>`
+                        : `Puede revisarla ingresando a la aplicación de Investigación de Incidentes.<br><br>`;
+
+                    var mensaje = `Estimado/a,<br><br>
+                    Le recordamos que para la investigación ${investigacion.nombre ? "<b>" + investigacion.nombre + "</b> " : ""}con Número SAP: ${investigacion.numeroAviso} ${textoDias} para su cierre.<br><br>
+                    ${link}
+                    Saludos,<br>
+                    GRP Digital.`;
+
+                    setTimeout(() => {
+
+                        const data = {
+                            "sendTo": correo,
+                            "subject": `Investigación Nro SAP: ${investigacion.numeroAviso} - Plazo de cierre: ${textoDias}`,
+                            "mailBody": "a",
+                            "html": mensaje
+                        }
+
+                        axios.post(url, data, config )
+                        .then(response => {
+                            console.log("Mail enviado con éxito.");
+                        }).catch(error => {
+                            console.error(error);
+                        });
+                    }, delay);
+                })
+            } else {
+                console.log(`No hay investigaciones en proceso a ${diasAviso} días hábiles o menos de su cierre.`);
+            }
+        })
+        .catch(error => {
+            console.error(error);
+    });
+
+    console.log('==> [APP JOB LOG] Job is running . . .');
+    res.send('Finished job');
+});
+
 app.get('/healthcheck-hana', async function(req, res) {
     const MAX_RETRIES = 5;
     const RETRY_DELAY_MS = 12000;
